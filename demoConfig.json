@@ -1,0 +1,5 @@
+{
+    "exportDir" : "Directory path where the MyDataHelps SFTP export will be.",
+    "mongoUri" : "mongodb://localhost:27017/",
+    "mongoName" : "MyDataHelps"
+}
