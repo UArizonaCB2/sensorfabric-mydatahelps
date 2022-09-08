@@ -12,7 +12,12 @@ type GeneralDatabase interface {
 	 * table : The table (RDS) or collection (NoSQL) to insert into.
 	 * jsonBytes : A 2 dimensional array when each row containing a json byte representation to be inserted.
 	 */
-	Insert(table string, jsonBytes [][]byte) (err error)
+	InsertRaw(table string, jsonBytes [][]byte) (err error)
+
+	InsertOne(table string, value map[string]interface{}) (err error)
+
+	ReadOne(table string, filter interface{}) (result map[string]interface{}, err error)
+
 	/*
 	* Connect to the database.
 	 */

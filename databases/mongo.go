@@ -8,9 +8,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log"
 	"time"
 
+	log "github.com/sirupsen/logrus"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -105,20 +105,43 @@ func (db *Mongo) checkClient() (err error) {
 	return nil
 }
 
+func (db *Mongo) InsertOne(collection string, value map[string]interface{}) (err error) {
+	logger := log.WithFields(log.Fields{
+		"package":  "databases",
+		"function": "InsertOne",
+	})
+
+	buffer := make([][]byte, 1)
+	buffer[0], err = json.Marshal(value)
+	if err != nil {
+		logger.Errorf("Failed to unmarshal value with error %s", err.Error())
+		return err
+	}
+
+	return db.InsertRaw(collection, buffer)
+}
+
 /*
  * Method which inserts a document into the given collection.
  * collection : MongoDB collection to add this object into.
  * jsonBytes : A 2 dimensional array of bytes, where each row represents a set of bytes that can be converted to json.
  */
-func (db *Mongo) Insert(collection string, jsonBytes [][]byte) (err error) {
+func (db *Mongo) InsertRaw(collection string, jsonBytes [][]byte) (err error) {
+	logger := log.WithFields(log.Fields{
+		"package":  "databases",
+		"function": "Insert",
+	})
 
 	// Unmarshal the json bytes into key-value map.
 	buffer := make([]interface{}, len(jsonBytes))
 	bidx := 0
-	var temp map[string]interface{}
 	for _, element := range jsonBytes {
+		// We need to create a new variable, (memory allocation) since bson.M is tied to it (&temp).
+		// If we don't we waste 1 hour debugging why all the elements in the buffer array are the same .....
+		// Offcourse not saying I did that .....
+		var temp map[string]interface{}
 		if err := json.Unmarshal(element, &temp); err != nil {
-			log.Println("Faled to unmarshal JSON " + err.Error())
+			logger.Errorln("Faled to unmarshal JSON " + err.Error())
 		} else {
 			buffer[bidx] = bson.M(temp)
 			bidx++
@@ -126,10 +149,33 @@ func (db *Mongo) Insert(collection string, jsonBytes [][]byte) (err error) {
 	}
 
 	// Do a batch insert into the database.
-	if _, err := db.database.Collection(collection).InsertMany(context.TODO(), buffer); err != nil {
-		log.Println("Error batch inserting into the Mongo database " + err.Error())
+	result, err := db.database.Collection(collection).InsertMany(db.backgroundCtx, buffer)
+	if err != nil {
+		logger.Errorln("Error batch inserting into the Mongo database " + err.Error())
 		return err
 	}
 
+	// Make sure that all the documents have been inserted.
+	if len(result.InsertedIDs) != len(jsonBytes) {
+		logger.Warnf("Possible Data Loss : Not all entries have been inserted into the database. %d Inserted but %d were requested.", len(result.InsertedIDs), len(jsonBytes))
+	}
+
 	return nil
+}
+
+/*
+* Method which reads a single record from the database and returns it.
+ * collection : MongoDB collection to read objects from.
+ * filter: query to filter the results. A nil is same as .findOne({})
+*/
+func (db *Mongo) ReadOne(collection string, filter interface{}) (result map[string]interface{}, err error) {
+	if filter == nil {
+		filter = bson.D{}
+	}
+
+	if err = db.database.Collection(collection).FindOne(db.backgroundCtx, filter).Decode(&result); err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }

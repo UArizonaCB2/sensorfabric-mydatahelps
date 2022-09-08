@@ -6,6 +6,12 @@ import (
 	"sensorfabric/mydatahelps/databases"
 	"sensorfabric/mydatahelps/mdevices"
 	"strings"
+	"time"
+
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+
+	log "github.com/sirupsen/logrus"
 )
 
 // An array of device modules that scan through the list of files and perform
@@ -28,6 +34,10 @@ func Setup() {
  * exportDir : Path to the export directory where the .zip files are.
  */
 func Looper(exportDir string, db databases.GeneralDatabase) (err error) {
+	logger := log.WithFields(log.Fields{
+		"module":   "commons",
+		"function": "Looper",
+	})
 
 	if len(exportDir) <= 0 {
 		// Raise an error.
@@ -64,8 +74,30 @@ func Looper(exportDir string, db databases.GeneralDatabase) (err error) {
 		// Iterate through all the files in the zip and pass them to the correct m-devices.
 		for _, file := range result.File {
 			for _, mdevice := range devices {
+				// Check the collection "processed" to see if have already processed this file for the given m-device.
+				filter := bson.M{
+					"$and": []bson.M{
+						bson.M{"file": file.Name}, // We use the full file path in the zip file.
+						bson.M{"module": mdevice.GetName()},
+					},
+				}
+				result, err := db.ReadOne("processed", filter)
+				if err != mongo.ErrNoDocuments {
+					// We found a document matching that, hence we have already processed this and we continue.
+					logger.Warnf("Skipping %s for %s as it has already been processed %v", file.Name, mdevice.GetName(), result["date"])
+					continue
+				}
 				if mdevice.CheckFile(file.Name) {
-					mdevice.Process(file, &db)
+					if err = mdevice.Process(file, db); err == nil {
+						// Make sure to add this in the processed collection as we have successfuly processed it.
+						document := bson.M{
+							"file":   file.Name,
+							"module": mdevice.GetName(),
+							"date":   time.Now(),
+						}
+						// TODO : If this errors out we try to keep adding the data into the collection until timeout.
+						db.InsertOne("processed", document)
+					}
 				}
 			}
 		}

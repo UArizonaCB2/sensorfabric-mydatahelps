@@ -11,6 +11,6 @@ import (
 
 type GenericDevice interface {
 	CheckFile(filename string) bool
-	Process(file *zip.File, db *databases.GeneralDatabase) error
+	Process(file *zip.File, db databases.GeneralDatabase) error
 	GetName() string
 }
