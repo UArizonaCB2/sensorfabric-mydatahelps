@@ -21,10 +21,12 @@ var devices []mdevices.GenericDevice
 
 /*
  * Setup all the wearable M-Devices (Mobile Health Devices)
+ * Note - Do not include file extensions in the file tag strings.
  */
 func Setup() {
 	devices = []mdevices.GenericDevice{
 		mdevices.CreateFitbitActivityHeartRate("fitbit_intraday_activities_heart"),
+		mdevices.CreateFitbitSleep("FitbitSleepLogDetails"),
 	}
 }
 

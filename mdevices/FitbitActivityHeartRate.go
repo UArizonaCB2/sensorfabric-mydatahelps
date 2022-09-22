@@ -1,5 +1,5 @@
 /*
- * This file contains the fitbit module for parsing MyDataHelps file that are specific to fitbit.
+ * This file contains the fitbit module for parsing MyDataHelps file that are specific to fitbit intraday heart rate.
  */
 
 package mdevices
@@ -34,7 +34,7 @@ func (f FitbitActivityHeartRate) CheckFile(filename string) bool {
 func (f FitbitActivityHeartRate) Process(file *zip.File, db databases.GeneralDatabase) (err error) {
 	logger := log.WithFields(log.Fields{
 		"package":  "modules",
-		"function": "FitbitActivity",
+		"function": "FitbitActivityHeartRate",
 	})
 
 	logger.Println("Processing file " + file.Name)
