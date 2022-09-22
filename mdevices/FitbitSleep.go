@@ -54,7 +54,7 @@ func (f FitbitSleep) Process(file *zip.File, db databases.GeneralDatabase) (err 
 	// Test code to see buffered reads.
 	scanner := bufio.NewScanner(fopen)
 	// Skip the frst line, which are the column headings.
-
+	scanner.Scan()
 	for scanner.Scan() {
 		line := scanner.Text()
 		linbuff := strings.Split(line, ",")
@@ -62,18 +62,23 @@ func (f FitbitSleep) Process(file *zip.File, db databases.GeneralDatabase) (err 
 			continue
 		}
 
+		logDate, _ := time.Parse("2006-01-02T15:04:05", linbuff[1])
+		startDate, _ := time.Parse("2006-01-02T15:04:05", linbuff[3])
+		endDate, _ := time.Parse("2006-01-02T15:04:05", linbuff[4])
+
 		_map := make(map[string]interface{})
 		_map[participantID] = linbuff[0]
-		_map["logDate"], _ = time.Parse("2006-01-02T15:04:05", linbuff[1])
-		_map["startDate"], _ = time.Parse("2006-01-02T15:04:05", linbuff[3])
-		_map["endDate"], _ = time.Parse("2006-01-02T15:04:05", linbuff[4])
 		_map["type"] = linbuff[2]
 		_map["value"] = linbuff[5]
+		_map["logDate"] = logDate.Unix()
+		_map["startDate"] = startDate.Unix()
+		_map["endDate"] = endDate.Unix()
 
 		// Marshal the data.
 		_buffer, err := json.Marshal(_map)
 		if err != nil {
 			logger.Warnf("Failed to unmarshal value with error %s", err.Error())
+			continue
 		}
 
 		// TODO: Handle the failure case when _map filed to unmarhsal. _buffer is in inconsistent state.
